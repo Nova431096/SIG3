@@ -1,0 +1,1051 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SIG3</title>
+<style>
+  :root{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;line-height:1.35}
+  body{margin:0;padding:24px;background:#0b0f14;color:#e7eef7}
+  .wrap{max-width:1020px;margin:0 auto}
+  h1{margin:0 0 14px;font-size:22px}
+  .card{background:#121a24;border:1px solid #213042;border-radius:14px;padding:16px;box-shadow:0 6px 20px rgba(0,0,0,.25)}
+  label{font-size:12px;color:#a9b7c7;display:block;margin:0 0 6px}
+  input,textarea,button,select{width:100%;box-sizing:border-box;border-radius:10px;border:1px solid #2a3b52;background:#0f1520;color:#e7eef7;padding:10px 12px;font:inherit}
+  textarea{min-height:110px;resize:vertical}
+  button{cursor:pointer;background:#1b2a3d;border-color:#2f4764}
+  button:hover{background:#22344b}
+  select{cursor:pointer}
+  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  .tabs{display:flex;gap:10px;margin:14px 0 10px}
+  .tab{flex:1;padding:10px;border-radius:10px;border:1px solid #2a3b52;background:#0f1520;color:#e7eef7;cursor:pointer}
+  .tab.active{background:#1b2a3d;border-color:#2f4764}
+  .row{display:grid;grid-template-columns:1fr;gap:10px}
+  @media(min-width:860px){.row2{grid-template-columns:1fr 1fr}}
+  @media(min-width:960px){.row3{grid-template-columns:1fr 1fr 1fr}}
+  .actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
+  .actions button{width:auto;padding:10px 14px}
+  .small{font-size:12px;color:#a9b7c7;margin-top:8px}
+  .ok{color:#73e6a5}
+  .warn{color:#ffcc66}
+  .err{color:#ff7b7b}
+  .hint{color:#a9b7c7;font-size:12px;margin-top:6px}
+  .hr{height:1px;background:#213042;margin:14px 0}
+  .pill{display:inline-block;padding:2px 8px;border-radius:999px;border:1px solid #2a3b52;background:#0f1520;color:#a9b7c7;font-size:12px}
+  .hidden{display:none!important}
+  details{border:1px solid #213042;border-radius:12px;padding:10px;background:#0f1520}
+  summary{cursor:pointer;color:#e7eef7}
+  .grid2{display:grid;grid-template-columns:1fr;gap:10px}
+  @media(min-width:860px){.grid2{grid-template-columns:1fr 1fr}}
+  .grid3{display:grid;grid-template-columns:1fr;gap:10px}
+  @media(min-width:860px){.grid3{grid-template-columns:1fr 1fr 1fr}}
+  a{color:#9ad0ff}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>SIG3 <span class="pill" id="inspectorBadge">Inspector: off</span></h1>
+
+  <div class="card">
+    <div class="row row2">
+      <div>
+        <label>Shared Key</label>
+        <input id="key" class="mono" autocomplete="off" spellcheck="false">
+        <div class="hint">Same key must be used to decrypt.</div>
+      </div>
+      <div>
+        <label>Version</label>
+        <div class="tabs" style="margin:0">
+          <button class="tab active" id="tabSIG1" type="button">SIG1</button>
+          <button class="tab" id="tabSIG2" type="button">SIG2</button>
+          <button class="tab" id="tabSIG3" type="button">SIG3</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- SIG1 -->
+    <div id="panelSIG1" style="margin-top:14px;">
+      <div class="tabs">
+        <button class="tab active" id="tabSIG1Dec" type="button">Decrypt</button>
+        <button class="tab" id="tabSIG1Enc" type="button">Encrypt</button>
+      </div>
+
+      <div id="sig1Dec">
+        <label>Payload</label>
+        <textarea id="sig1Payload" class="mono" spellcheck="false"></textarea>
+
+        <div class="actions">
+          <button id="sig1BtnDec" type="button">Decrypt</button>
+          <button id="sig1BtnClear" type="button">Clear</button>
+          <button id="sig1BtnCopyClean" type="button">Copy Clean</button>
+        </div>
+
+        <label style="margin-top:12px;">Raw Output</label>
+        <textarea id="sig1OutRaw" class="mono" readonly></textarea>
+
+        <label style="margin-top:12px;">Cleaned Output (X → space)</label>
+        <textarea id="sig1OutClean" readonly></textarea>
+
+        <div id="sig1Status" class="small"></div>
+      </div>
+
+      <div id="sig1Enc" style="display:none;">
+        <label>Plaintext (A–Z only; use X for spaces)</label>
+        <textarea id="sig1Plain" class="mono" spellcheck="false"></textarea>
+
+        <div class="actions">
+          <button id="sig1BtnEnc" type="button">Encrypt</button>
+          <button id="sig1BtnNonce" type="button">New Nonce</button>
+          <button id="sig1BtnCopyPayload" type="button">Copy Payload</button>
+        </div>
+
+        <div class="row row2" style="margin-top:12px;">
+          <div>
+            <label>Nonce</label>
+            <input id="sig1Nonce" class="mono" maxlength="6" spellcheck="false">
+          </div>
+          <div>
+            <label>Payload</label>
+            <input id="sig1PayloadOut" class="mono" readonly>
+          </div>
+        </div>
+
+        <label style="margin-top:12px;">Ciphertext</label>
+        <textarea id="sig1Cipher" class="mono" readonly></textarea>
+
+        <div id="sig1StatusEnc" class="small"></div>
+      </div>
+    </div>
+
+    <!-- SIG2 (frozen — link out) -->
+    <div id="panelSIG2" style="display:none;margin-top:14px;">
+      <h3 style="margin:0 0 8px;">SIG2 (Frozen)</h3>
+      <div class="small">
+        SIG2 is intentionally kept on its last stable iteration.
+        This SIG3 page does not re-implement SIG2 to avoid drift.
+      </div>
+      <div class="actions" style="margin-top:12px;">
+        <button id="openSig2" type="button">Open SIG2 in a new tab</button>
+        <button id="copySig2Url" type="button">Copy SIG2 URL</button>
+      </div>
+      <div class="small" style="margin-top:12px;">
+        URL: <span class="mono" id="sig2Url">https://nova431096.github.io/SIG2/</span>
+      </div>
+    </div>
+
+    <!-- SIG3 (draft engine) -->
+    <div id="panelSIG3" style="display:none;margin-top:14px;">
+      <div class="tabs">
+        <button class="tab active" id="tabSIG3Dec" type="button">Decrypt</button>
+        <button class="tab" id="tabSIG3Enc" type="button">Encrypt</button>
+      </div>
+
+      <!-- SIG3 Decrypt -->
+      <div id="sig3Dec">
+        <div class="row row3">
+          <div>
+            <label>Mode</label>
+            <select id="sig3ModeDec">
+              <option value="A">A (standard)</option>
+              <option value="B">B (aggressive stepping)</option>
+              <option value="C">C (alt reflector)</option>
+              <option value="D">D (emoji/symbol alphabet)</option>
+            </select>
+          </div>
+          <div>
+            <label>Salt (optional)</label>
+            <input id="sig3SaltDec" class="mono" autocomplete="off" spellcheck="false">
+          </div>
+          <div>
+            <label>Hardening</label>
+            <select id="sig3KdfDec">
+              <option value="0">0 (legacy / fastest)</option>
+              <option value="1">1 (fast)</option>
+              <option value="2" selected>2 (normal)</option>
+              <option value="3">3 (heavy)</option>
+            </select>
+          </div>
+        </div>
+
+        <label style="margin-top:10px;">Payload (can be embedded in other text; decryptor extracts it)</label>
+        <textarea id="sig3Payload" class="mono" spellcheck="false"></textarea>
+
+        <div class="actions">
+          <button id="sig3BtnDec" type="button">Decrypt</button>
+          <button id="sig3BtnClear" type="button">Clear</button>
+          <button id="sig3BtnCopyPlain" type="button">Copy Output</button>
+        </div>
+
+        <label style="margin-top:12px;">Output</label>
+        <textarea id="sig3Out" readonly></textarea>
+
+        <div id="sig3Status" class="small"></div>
+        <div class="hint" style="margin-top:10px;">
+          SIG3 draft supports: decoy mode, time lock, packed ciphertext, stego wrapping, inspector, and key hardening.
+        </div>
+      </div>
+
+      <!-- SIG3 Encrypt -->
+      <div id="sig3Enc" style="display:none;">
+        <div class="row row3">
+          <div>
+            <label>Mode</label>
+            <select id="sig3ModeEnc">
+              <option value="A">A (standard)</option>
+              <option value="B">B (aggressive stepping)</option>
+              <option value="C">C (alt reflector)</option>
+              <option value="D">D (emoji/symbol alphabet)</option>
+            </select>
+          </div>
+          <div>
+            <label>Salt (optional)</label>
+            <input id="sig3SaltEnc" class="mono" autocomplete="off" spellcheck="false">
+          </div>
+          <div>
+            <label>Hardening</label>
+            <select id="sig3KdfEnc">
+              <option value="0">0 (legacy / fastest)</option>
+              <option value="1">1 (fast)</option>
+              <option value="2" selected>2 (normal)</option>
+              <option value="3">3 (heavy)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="row row2" style="margin-top:10px;">
+          <div>
+            <label>Time-lock (earliest date to decrypt) — optional</label>
+            <input id="sig3DateEnc" class="mono" placeholder="YYYYMMDD" maxlength="8" spellcheck="false">
+            <div class="hint">Leave blank for no time lock.</div>
+          </div>
+          <div>
+            <label>Output Format</label>
+            <select id="sig3OutFmt">
+              <option value="standard" selected>Standard (readable)</option>
+              <option value="packed">Packed (shorter ciphertext segment)</option>
+            </select>
+          </div>
+        </div>
+
+        <label style="margin-top:10px;">Plaintext (real)</label>
+        <textarea id="sig3Plain" spellcheck="false"></textarea>
+
+        <details style="margin-top:10px;">
+          <summary>Decoy Mode (optional)</summary>
+          <div class="grid2" style="margin-top:10px;">
+            <div>
+              <label>Decoy Plaintext</label>
+              <textarea id="sig3PlainDecoy" spellcheck="false"></textarea>
+            </div>
+            <div>
+              <label>Decoy Salt (optional)</label>
+              <input id="sig3SaltDecoy" class="mono" autocomplete="off" spellcheck="false">
+            </div>
+          </div>
+        </details>
+
+        <details style="margin-top:10px;">
+          <summary>Stego Output (optional)</summary>
+          <div class="grid2" style="margin-top:10px;">
+            <div>
+              <label>Style</label>
+              <select id="sig3StegoStyle">
+                <option value="none" selected>None</option>
+                <option value="version">Version string</option>
+                <option value="coords">Coordinates</option>
+                <option value="commit">Commit hash</option>
+              </select>
+            </div>
+            <div>
+              <label>Stego Output</label>
+              <textarea id="sig3StegoOut" class="mono" readonly></textarea>
+            </div>
+          </div>
+        </details>
+
+        <div class="actions">
+          <button id="sig3BtnEnc" type="button">Encrypt</button>
+          <button id="sig3BtnNonce" type="button">New Nonce</button>
+          <button id="sig3BtnCopyPayload" type="button">Copy Payload</button>
+          <button id="sig3BtnCopyStego" type="button">Copy Stego</button>
+        </div>
+
+        <div class="row row3" style="margin-top:12px;">
+          <div>
+            <label>Nonce</label>
+            <input id="sig3Nonce" class="mono" maxlength="6" spellcheck="false">
+          </div>
+          <div>
+            <label>Tag (real)</label>
+            <input id="sig3Tag" class="mono" maxlength="6" readonly>
+          </div>
+          <div>
+            <label>Tag (decoy)</label>
+            <input id="sig3TagDecoy" class="mono" maxlength="6" readonly>
+          </div>
+        </div>
+
+        <label style="margin-top:12px;">Payload</label>
+        <input id="sig3PayloadOut" class="mono" readonly>
+
+        <div id="sig3StatusEnc" class="small"></div>
+      </div>
+    </div>
+
+    <!-- Inspector panel (SIG3 only) -->
+    <div id="inspectorPanel" class="hidden" style="margin-top:14px;">
+      <details open>
+        <summary>Inspector (Ctrl + Shift + S)</summary>
+        <div class="grid3" style="margin-top:10px;">
+          <div>
+            <label>Ignore time lock (decrypt anyway)</label>
+            <select id="insIgnoreTime">
+              <option value="0" selected>No</option>
+              <option value="1">Yes</option>
+            </select>
+          </div>
+          <div>
+            <label>Show internal debug text</label>
+            <select id="insShowDebug">
+              <option value="0" selected>No</option>
+              <option value="1">Yes</option>
+            </select>
+          </div>
+          <div>
+            <label>Today (local)</label>
+            <input id="insToday" class="mono" readonly>
+          </div>
+        </div>
+        <div class="hr"></div>
+        <label>Last decrypt parse / debug</label>
+        <textarea id="insDebug" class="mono" readonly style="min-height:140px;"></textarea>
+      </details>
+    </div>
+
+  </div>
+</div>
+
+<script>
+/* =========================
+   Shared utilities
+========================= */
+const A_CODE = "A".charCodeAt(0);
+const el = (id)=>document.getElementById(id);
+
+function nonce6(){
+  const b=new Uint8Array(6);
+  crypto.getRandomValues(b);
+  let s="";
+  for(let i=0;i<6;i++) s += String.fromCharCode(A_CODE + (b[i]%26));
+  return s;
+}
+function todayYYYYMMDD(){
+  const d=new Date();
+  const y=d.getFullYear();
+  const m=String(d.getMonth()+1).padStart(2,"0");
+  const da=String(d.getDate()).padStart(2,"0");
+  return `${y}${m}${da}`;
+}
+async function sha256Bytes(str){
+  const data=new TextEncoder().encode(str);
+  const digest=await crypto.subtle.digest("SHA-256", data);
+  return new Uint8Array(digest);
+}
+function bytesToHex(bytes){
+  let out="";
+  for(const b of bytes) out += b.toString(16).padStart(2,"0");
+  return out;
+}
+function copyText(v){ if(!v) return; navigator.clipboard.writeText(v).catch(()=>{}); }
+function cleanAZ(s){ return (s||"").toUpperCase().replace(/[^A-Z]/g,""); }
+function isHex6(s){ return /^[0-9A-F]{6}$/.test((s||"").toUpperCase()); }
+function isDate8(s){ return /^[0-9]{8}$/.test(s||""); }
+function extractPayload(text){
+  const t=(text||"").trim();
+  const idx1=t.toUpperCase().indexOf("SIG1.");
+  const idx2=t.toUpperCase().indexOf("SIG3");
+  let idx=-1;
+  if(idx1>=0 && idx2>=0) idx=Math.min(idx1,idx2);
+  else idx = (idx1>=0?idx1:idx2);
+  if(idx<0) return t.replace(/\s+/g,"");
+  return t.slice(idx).replace(/\s+/g,"");
+}
+
+/* =========================
+   SIG1 (unchanged)
+========================= */
+const mod26=(n)=> (n%26+26)%26;
+const toIdx26=(c)=> c.charCodeAt(0)-A_CODE;
+const toCh26=(i)=> String.fromCharCode(A_CODE+i);
+
+async function* byteStreamFromBytes(seedBytes){
+  let block = seedBytes;
+  while(true){
+    for(let i=0;i<block.length;i++) yield block[i];
+    block = await crypto.subtle.digest("SHA-256", block).then(b=>new Uint8Array(b));
+  }
+}
+async function* byteStreamFromString(seedStr){
+  let block = await sha256Bytes(seedStr);
+  while(true){
+    for(let i=0;i<block.length;i++) yield block[i];
+    block = await crypto.subtle.digest("SHA-256", block).then(b=>new Uint8Array(b));
+  }
+}
+async function buildSIG1(key, nonce){
+  if(!key || !key.trim()) throw new Error("Key required.");
+  const stream = byteStreamFromString(`SIG1|${key.trim()}|${nonce}`);
+  const nextByte = async()=> (await stream.next()).value;
+
+  async function randInt(n){
+    const lim = Math.floor(256/n)*n;
+    while(true){
+      const b = await nextByte();
+      if(b < lim) return b % n;
+    }
+  }
+  async function makeRotor(){
+    const arr = Array.from({length:26},(_,i)=>i);
+    for(let i=25;i>0;i--){
+      const j = await randInt(i+1);
+      [arr[i],arr[j]]=[arr[j],arr[i]];
+    }
+    return arr;
+  }
+  const r0=await makeRotor(), r1=await makeRotor(), r2=await makeRotor();
+  const inv=(r)=>{ const ir=new Array(26); for(let i=0;i<26;i++) ir[r[i]]=i; return ir; };
+  const ir0=inv(r0), ir1=inv(r1), ir2=inv(r2);
+
+  async function makeReflector(){
+    const ref = new Array(26).fill(-1);
+    const u = Array.from({length:26},(_,i)=>i);
+    while(u.length){
+      const a = u.splice(await randInt(u.length),1)[0];
+      if((await randInt(100))<20 || !u.length){ ref[a]=a; continue; }
+      const b = u.splice(await randInt(u.length),1)[0];
+      ref[a]=b; ref[b]=a;
+    }
+    return ref;
+  }
+  const ref = await makeReflector();
+  const o0=(await nextByte())%26, o1=(await nextByte())%26, o2=(await nextByte())%26;
+  return {r0,r1,r2,ir0,ir1,ir2,ref,o0,o1,o2};
+}
+function stepSIG1(s){
+  s.o2 = (s.o2+1)%26;
+  if(s.o2===0){
+    s.o1 = (s.o1+1)%26;
+    if(s.o1===0) s.o0 = (s.o0+1)%26;
+  }
+}
+function rotorFwd26(x, rotor, off){
+  const y = rotor[mod26(x+off)];
+  return mod26(y-off);
+}
+function rotorInv26(x, invRotor, off){
+  const y = invRotor[mod26(x+off)];
+  return mod26(y-off);
+}
+function xformSIG1(x, s){
+  x = rotorFwd26(x,s.r0,s.o0);
+  x = rotorFwd26(x,s.r1,s.o1);
+  x = rotorFwd26(x,s.r2,s.o2);
+  x = s.ref[x];
+  x = rotorInv26(x,s.ir2,s.o2);
+  x = rotorInv26(x,s.ir1,s.o1);
+  x = rotorInv26(x,s.ir0,s.o0);
+  return x;
+}
+function cleanSIG1Text(s){ return (s||"").toUpperCase().replace(/[^A-Z]/g,""); }
+async function sig1Crypt(key, nonce, text){
+  const s=await buildSIG1(key, nonce);
+  const input=cleanSIG1Text(text);
+  let out="";
+  for(const ch of input){
+    stepSIG1(s);
+    out += toCh26(xformSIG1(toIdx26(ch), s));
+  }
+  return out;
+}
+
+/* =========================
+   SIG3 Draft Engine
+   (Decoy, timelock, packing, stego, inspector, hardening)
+========================= */
+const SIG3_ALPHABET =
+  "ABCDEFGHIJKLMNOPQRSTUVWXYZ" +
+  " " +
+  "0123456789" +
+  ".,?!:;'-()/" +
+  "@#&";
+
+const SIG3_ALPHABET_D =
+  "ABCDEFGHIJKLMNOPQRSTUVWXYZ" +
+  " " +
+  "0123456789" +
+  ".,?!:;'-()/" +
+  "@#&" +
+  "ΔΩΣπλ★☆✓✗♥♦♣♠" +
+  "🙂😈👽🚀🛰️🧩🔒🔥❄️";
+
+const SIG3_MODES = {
+  A: { stepping:"standard", reflector:"standard", alphabet: SIG3_ALPHABET },
+  B: { stepping:"aggressive", reflector:"standard", alphabet: SIG3_ALPHABET },
+  C: { stepping:"standard", reflector:"alt",      alphabet: SIG3_ALPHABET },
+  D: { stepping:"standard", reflector:"standard", alphabet: SIG3_ALPHABET_D },
+};
+const KDF_LEVELS = {
+  0: { iterations: 1 },
+  1: { iterations: 20000 },
+  2: { iterations: 100000 },
+  3: { iterations: 300000 },
+};
+function makeIndexMap(alpha){
+  const m=new Map();
+  for(let i=0;i<alpha.length;i++) m.set(alpha[i], i);
+  return m;
+}
+function cleanSIG3Text(s, map){
+  const t=(s||"").toUpperCase();
+  let out="";
+  for(const ch of t){
+    if(map.has(ch)) out += ch;
+  }
+  return out;
+}
+const modN = (n,N)=> (n%N + N)%N;
+
+async function pbkdf2Bytes(passwordStr, saltStr, iterations, bytesLen){
+  const enc = new TextEncoder();
+  const keyMaterial = await crypto.subtle.importKey(
+    "raw",
+    enc.encode(passwordStr),
+    "PBKDF2",
+    false,
+    ["deriveBits"]
+  );
+  const bits = await crypto.subtle.deriveBits(
+    { name:"PBKDF2", hash:"SHA-256", salt: enc.encode(saltStr), iterations },
+    keyMaterial,
+    bytesLen * 8
+  );
+  return new Uint8Array(bits);
+}
+async function sig3SeedBytes({key, salt, nonce, mode, kdfLevel, date, alphabet}){
+  const k = (key||"").trim();
+  const s = (salt||"").trim();
+  const d = (date||"").trim();
+  const m = (mode||"A").toUpperCase();
+  const seedStr = `SIG3|${m}|${k}|SALT:${s}|NONCE:${nonce}|DATE:${d}|ALPHA:${alphabet}`;
+
+  if(String(kdfLevel) === "0"){
+    return await sha256Bytes(seedStr);
+  }
+  const it = (KDF_LEVELS[kdfLevel] || KDF_LEVELS[2]).iterations;
+  return await pbkdf2Bytes(`SIG3|${k}|${s}`, `NONCE:${nonce}|MODE:${m}|DATE:${d}|ALPHA:${alphabet}`, it, 32);
+}
+async function buildSIG3Machine({key, salt, nonce, mode, kdfLevel, date, alphabet, reflectorVariant}){
+  if(!key || !key.trim()) throw new Error("Key required.");
+  const N = alphabet.length;
+
+  const seed = await sig3SeedBytes({key, salt, nonce, mode, kdfLevel, date, alphabet});
+  const stream = byteStreamFromBytes(seed);
+  const nextByte = async()=> (await stream.next()).value;
+
+  async function randInt(n){
+    const lim = Math.floor(256/n)*n;
+    while(true){
+      const b = await nextByte();
+      if(b < lim) return b % n;
+    }
+  }
+  async function makePerm(){
+    const arr = Array.from({length:N},(_,i)=>i);
+    for(let i=N-1;i>0;i--){
+      const j = await randInt(i+1);
+      [arr[i],arr[j]]=[arr[j],arr[i]];
+    }
+    return arr;
+  }
+  function invPerm(r){
+    const ir=new Array(N);
+    for(let i=0;i<N;i++) ir[r[i]]=i;
+    return ir;
+  }
+  async function makeReflector(kind){
+    const fixedRate = (kind==="alt") ? 8 : 15;
+    const ref=new Array(N).fill(-1);
+    const u=Array.from({length:N},(_,i)=>i);
+    while(u.length){
+      const a = u.splice(await randInt(u.length),1)[0];
+      if((await randInt(100)) < fixedRate || !u.length){ ref[a]=a; continue; }
+      const b = u.splice(await randInt(u.length),1)[0];
+      ref[a]=b; ref[b]=a;
+    }
+    return ref;
+  }
+
+  const r0=await makePerm(), r1=await makePerm(), r2=await makePerm();
+  const ir0=invPerm(r0), ir1=invPerm(r1), ir2=invPerm(r2);
+  const ref = await makeReflector(reflectorVariant || "standard");
+
+  const o0=(await nextByte())%N, o1=(await nextByte())%N, o2=(await nextByte())%N;
+  const roff=(await nextByte())%N;
+  return {N, alphabet, r0,r1,r2, ir0,ir1,ir2, ref, o0,o1,o2, roff};
+}
+function stepSIG3(s, stepping){
+  const N=s.N;
+  s.o2 = (s.o2 + 1) % N;
+  s.roff = (s.roff + 1) % N;
+  if(stepping === "aggressive"){
+    if(s.o2 === 0 || (s.o2 % 5) === 0) s.o1 = (s.o1 + 1) % N;
+    if(s.o1 === 0 || (s.o1 % 7) === 0) s.o0 = (s.o0 + 1) % N;
+  }else{
+    if(s.o2 === 0 || (s.o2 % 7) === 0) s.o1 = (s.o1 + 1) % N;
+    if(s.o1 === 0 || (s.o1 % 11) === 0) s.o0 = (s.o0 + 1) % N;
+  }
+}
+function rotorFwdN(x, rotor, off, N){
+  const y = rotor[modN(x + off, N)];
+  return modN(y - off, N);
+}
+function rotorInvN(x, invRotor, off, N){
+  const y = invRotor[modN(x + off, N)];
+  return modN(y - off, N);
+}
+function reflectN(x, ref, roff, N){
+  return modN(ref[modN(x + roff, N)] - roff, N);
+}
+function xformSIG3(x, s){
+  const N=s.N;
+  x = rotorFwdN(x, s.r0, s.o0, N);
+  x = rotorFwdN(x, s.r1, s.o1, N);
+  x = rotorFwdN(x, s.r2, s.o2, N);
+  x = reflectN(x, s.ref, s.roff, N);
+  x = rotorInvN(x, s.ir2, s.o2, N);
+  x = rotorInvN(x, s.ir1, s.o1, N);
+  x = rotorInvN(x, s.ir0, s.o0, N);
+  return x;
+}
+async function sig3Crypt({key, salt, nonce, mode, kdfLevel, date, text, alphabet, stepping, reflectorVariant}){
+  const map = makeIndexMap(alphabet);
+  const input = cleanSIG3Text(text, map);
+  if(!input) return "";
+  const s = await buildSIG3Machine({key, salt, nonce, mode, kdfLevel, date, alphabet, reflectorVariant});
+  let out="";
+  for(const ch of input){
+    stepSIG3(s, stepping);
+    const idx = map.get(ch);
+    const y = xformSIG3(idx, s);
+    out += alphabet[y];
+  }
+  return out;
+}
+async function sig3Tag6({key, salt, nonce, mode, kdfLevel, date, alphabet, normalizedPlain}){
+  const k=(key||"").trim(), s=(salt||"").trim(), d=(date||"").trim(), m=(mode||"A").toUpperCase();
+  const bytes = await sha256Bytes(`SIG3|TAG|KDF:${kdfLevel}|${m}|${k}|SALT:${s}|NONCE:${nonce}|DATE:${d}|ALPHA:${alphabet}|${normalizedPlain}`);
+  return bytesToHex(bytes).slice(0,6).toUpperCase();
+}
+
+/* Packed */
+function b64urlEncode(bytes){
+  let bin="";
+  for(const b of bytes) bin += String.fromCharCode(b);
+  return btoa(bin).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
+}
+function b64urlDecode(str){
+  const s = (str||"").replace(/-/g,"+").replace(/_/g,"/");
+  const pad = s.length % 4 ? "=".repeat(4 - (s.length % 4)) : "";
+  const bin = atob(s+pad);
+  const out = new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++) out[i]=bin.charCodeAt(i);
+  return out;
+}
+function packIndices(text, alphabet){
+  const N = alphabet.length;
+  if(N > 64) return null;
+  const map = makeIndexMap(alphabet);
+  const cleaned = cleanSIG3Text(text, map);
+  const idxs = [];
+  for(const ch of cleaned) idxs.push(map.get(ch));
+  const len = idxs.length;
+  if(len > 65535) throw new Error("Message too long to pack.");
+  const bitsTotal = len * 6;
+  const bytesLen = Math.ceil(bitsTotal / 8);
+  const out = new Uint8Array(2 + bytesLen);
+  out[0] = (len >> 8) & 255;
+  out[1] = len & 255;
+  let bitPos = 0;
+  for(const v of idxs){
+    for(let k=5;k>=0;k--){
+      const bit = (v >> k) & 1;
+      const byteIndex = 2 + (bitPos >> 3);
+      const bitIndex = 7 - (bitPos & 7);
+      out[byteIndex] |= (bit << bitIndex);
+      bitPos++;
+    }
+  }
+  return "P:" + b64urlEncode(out);
+}
+function unpackIndices(packed, alphabet){
+  const N = alphabet.length;
+  if(N > 64) throw new Error("Packed decoding not supported for this alphabet.");
+  if(!packed.startsWith("P:")) throw new Error("Not a packed segment.");
+  const bytes = b64urlDecode(packed.slice(2));
+  if(bytes.length < 2) throw new Error("Packed data too short.");
+  const len = (bytes[0] << 8) | bytes[1];
+  const bitsTotal = len * 6;
+  const needed = 2 + Math.ceil(bitsTotal/8);
+  if(bytes.length < needed) throw new Error("Packed data truncated.");
+  let bitPos = 0;
+  let out = "";
+  for(let i=0;i<len;i++){
+    let v=0;
+    for(let k=0;k<6;k++){
+      const byteIndex = 2 + (bitPos >> 3);
+      const bitIndex = 7 - (bitPos & 7);
+      const bit = (bytes[byteIndex] >> bitIndex) & 1;
+      v = (v<<1) | bit;
+      bitPos++;
+    }
+    if(v >= N) throw new Error("Packed index out of range.");
+    out += alphabet[v];
+  }
+  return out;
+}
+
+/* Stego */
+function stegoWrap(style, payload){
+  if(!payload) return "";
+  const short = payload.length > 48 ? (payload.slice(0,24) + "…" + payload.slice(-18)) : payload;
+  if(style === "version") return `v3.0.${Math.floor(Math.random()*90)+10}-notes (${short})`;
+  if(style === "coords"){
+    const lat = (Math.random()*180-90).toFixed(5);
+    const lon = (Math.random()*360-180).toFixed(5);
+    return `GPS ${lat}, ${lon} // ref=${payload}`;
+  }
+  if(style === "commit"){
+    const fake = bytesToHex(crypto.getRandomValues(new Uint8Array(10))).slice(0,12);
+    return `build ${fake} - ${payload}`;
+  }
+  return payload;
+}
+
+/* Inspector */
+let inspectorOn = false;
+function setInspector(on){
+  inspectorOn = !!on;
+  el("inspectorPanel").classList.toggle("hidden", !inspectorOn);
+  el("inspectorBadge").textContent = inspectorOn ? "Inspector: on" : "Inspector: off";
+}
+function setDebug(text){
+  if(!inspectorOn) return;
+  el("insDebug").value = text || "";
+}
+
+/* =========================
+   UI wiring
+========================= */
+function setVersion(v){
+  el("tabSIG1").classList.toggle("active", v==="SIG1");
+  el("tabSIG2").classList.toggle("active", v==="SIG2");
+  el("tabSIG3").classList.toggle("active", v==="SIG3");
+  el("panelSIG1").style.display = v==="SIG1" ? "" : "none";
+  el("panelSIG2").style.display = v==="SIG2" ? "" : "none";
+  el("panelSIG3").style.display = v==="SIG3" ? "" : "none";
+}
+el("tabSIG1").addEventListener("click", ()=>setVersion("SIG1"));
+el("tabSIG2").addEventListener("click", ()=>setVersion("SIG2"));
+el("tabSIG3").addEventListener("click", ()=>setVersion("SIG3"));
+
+function setSIG1Mode(m){
+  el("tabSIG1Dec").classList.toggle("active", m==="dec");
+  el("tabSIG1Enc").classList.toggle("active", m==="enc");
+  el("sig1Dec").style.display = m==="dec" ? "" : "none";
+  el("sig1Enc").style.display = m==="enc" ? "" : "none";
+}
+el("tabSIG1Dec").addEventListener("click", ()=>setSIG1Mode("dec"));
+el("tabSIG1Enc").addEventListener("click", ()=>setSIG1Mode("enc"));
+
+function setSIG3Mode(m){
+  el("tabSIG3Dec").classList.toggle("active", m==="dec");
+  el("tabSIG3Enc").classList.toggle("active", m==="enc");
+  el("sig3Dec").style.display = m==="dec" ? "" : "none";
+  el("sig3Enc").style.display = m==="enc" ? "" : "none";
+}
+el("tabSIG3Dec").addEventListener("click", ()=>setSIG3Mode("dec"));
+el("tabSIG3Enc").addEventListener("click", ()=>setSIG3Mode("enc"));
+
+/* SIG2 link-out */
+const SIG2_URL = "https://nova431096.github.io/SIG2/";
+el("openSig2").addEventListener("click", ()=>window.open(SIG2_URL, "_blank", "noopener"));
+el("copySig2Url").addEventListener("click", ()=>copyText(SIG2_URL));
+
+/* Inspector hotkey */
+document.addEventListener("keydown", (e)=>{
+  if(e.ctrlKey && e.shiftKey && (e.key==="S" || e.key==="s")){
+    e.preventDefault();
+    setInspector(!inspectorOn);
+  }
+});
+
+/* ---- SIG1 actions ---- */
+el("sig1BtnNonce").addEventListener("click", ()=>{ el("sig1Nonce").value = nonce6(); });
+el("sig1BtnEnc").addEventListener("click", async()=>{
+  try{
+    el("sig1StatusEnc").textContent = "";
+    const key = el("key").value || "";
+    let nonce = cleanAZ(el("sig1Nonce").value || "");
+    if(nonce.length !== 6){ nonce = nonce6(); el("sig1Nonce").value = nonce; }
+    const pt = el("sig1Plain").value || "";
+    const ct = await sig1Crypt(key, nonce, pt);
+    el("sig1Cipher").value = ct;
+    el("sig1PayloadOut").value = `SIG1.${nonce}.${ct}`;
+    el("sig1StatusEnc").innerHTML = `<span class="ok">Encrypted</span> • Len: ${ct.length}`;
+  }catch(e){
+    el("sig1StatusEnc").innerHTML = `<span class="err">${e.message}</span>`;
+  }
+});
+el("sig1BtnCopyPayload").addEventListener("click", ()=>copyText(el("sig1PayloadOut").value));
+el("sig1BtnCopyClean").addEventListener("click", ()=>copyText(el("sig1OutClean").value));
+el("sig1BtnDec").addEventListener("click", async()=>{
+  try{
+    el("sig1Status").textContent = "";
+    const key = el("key").value || "";
+    const raw = extractPayload(el("sig1Payload").value || "").toUpperCase();
+    const parts = raw.split(".");
+    if(parts.length !== 3 || parts[0] !== "SIG1") throw new Error("Expected: SIG1.<NONCE6>.<CIPHERTEXT>");
+    const nonce = cleanAZ(parts[1]);
+    const ct = cleanSIG1Text(parts.slice(2).join("."));
+    if(nonce.length !== 6) throw new Error("SIG1 nonce must be 6 letters.");
+    const pt = await sig1Crypt(key, nonce, ct);
+    el("sig1OutRaw").value = pt;
+    el("sig1OutClean").value = pt.replace(/X/g," ");
+    el("sig1Status").innerHTML = `<span class="ok">Decrypted</span> • Len: ${pt.length}`;
+  }catch(e){
+    el("sig1Status").innerHTML = `<span class="err">${e.message}</span>`;
+  }
+});
+el("sig1BtnClear").addEventListener("click", ()=>{
+  el("sig1Payload").value = "";
+  el("sig1OutRaw").value = "";
+  el("sig1OutClean").value = "";
+  el("sig1Status").textContent = "";
+});
+
+/* ---- SIG3 actions ---- */
+el("sig3BtnNonce").addEventListener("click", ()=>{ el("sig3Nonce").value = nonce6(); });
+el("sig3BtnCopyPayload").addEventListener("click", ()=>copyText(el("sig3PayloadOut").value));
+el("sig3BtnCopyStego").addEventListener("click", ()=>copyText(el("sig3StegoOut").value));
+el("sig3BtnCopyPlain").addEventListener("click", ()=>copyText(el("sig3Out").value));
+el("sig3BtnClear").addEventListener("click", ()=>{
+  el("sig3Payload").value = "";
+  el("sig3Out").value = "";
+  el("sig3Status").textContent = "";
+  setDebug("");
+});
+
+/* SIG3 Encrypt */
+el("sig3BtnEnc").addEventListener("click", async()=>{
+  try{
+    el("sig3StatusEnc").textContent = "";
+    const key = el("key").value || "";
+    const mode = (el("sig3ModeEnc").value || "A").toUpperCase();
+    const cfg = SIG3_MODES[mode] || SIG3_MODES.A;
+    const salt = el("sig3SaltEnc").value || "";
+    const kdfLevel = String(el("sig3KdfEnc").value || "2");
+    let nonce = cleanAZ(el("sig3Nonce").value || "");
+    if(nonce.length !== 6){ nonce = nonce6(); el("sig3Nonce").value = nonce; }
+
+    let date = (el("sig3DateEnc").value || "").trim();
+    if(date && !isDate8(date)) throw new Error("Time-lock date must be YYYYMMDD or blank.");
+
+    const outFmt = el("sig3OutFmt").value || "standard";
+    const map = makeIndexMap(cfg.alphabet);
+
+    const realNorm = cleanSIG3Text(el("sig3Plain").value || "", map);
+    if(!realNorm) throw new Error("Plaintext (real) is empty after cleaning.");
+
+    const stepping = cfg.stepping === "aggressive" ? "aggressive" : cfg.stepping;
+    const reflectorVariant = cfg.reflector === "alt" ? "alt" : "standard";
+
+    const ctReal = await sig3Crypt({key, salt, nonce, mode, kdfLevel, date, text: realNorm, alphabet: cfg.alphabet, stepping, reflectorVariant});
+    const tagReal = await sig3Tag6({key, salt, nonce, mode, kdfLevel, date, alphabet: cfg.alphabet, normalizedPlain: realNorm});
+
+    const decoyTextRaw = el("sig3PlainDecoy").value || "";
+    const decoySalt = el("sig3SaltDecoy").value || "";
+    const decoyNorm = decoyTextRaw ? cleanSIG3Text(decoyTextRaw, map) : "";
+    let ctDecoy = "", tagDecoy = "";
+
+    if(decoyNorm){
+      ctDecoy = await sig3Crypt({key, salt: decoySalt, nonce, mode, kdfLevel, date, text: decoyNorm, alphabet: cfg.alphabet, stepping, reflectorVariant});
+      tagDecoy = await sig3Tag6({key, salt: decoySalt, nonce, mode, kdfLevel, date, alphabet: cfg.alphabet, normalizedPlain: decoyNorm});
+    }
+
+    let ctRealSeg = ctReal;
+    let ctDecoySeg = ctDecoy;
+    if(outFmt === "packed"){
+      const pR = packIndices(ctReal, cfg.alphabet);
+      if(!pR) throw new Error("Packed format not supported for this alphabet length.");
+      ctRealSeg = pR;
+      if(ctDecoy){
+        const pD = packIndices(ctDecoy, cfg.alphabet);
+        if(!pD) throw new Error("Packed format not supported for this alphabet length.");
+        ctDecoySeg = pD;
+      }
+    }
+
+    const prefix = `SIG3${mode}${kdfLevel}`;
+
+    let payload = "";
+    if(date && decoyNorm){
+      payload = `${prefix}.${nonce}.${date}.${tagReal}.${tagDecoy}.${ctRealSeg}~${ctDecoySeg}`;
+    }else if(date){
+      payload = `${prefix}.${nonce}.${date}.${tagReal}.${ctRealSeg}`;
+    }else if(decoyNorm){
+      payload = `${prefix}.${nonce}.${tagReal}.${tagDecoy}.${ctRealSeg}~${ctDecoySeg}`;
+    }else{
+      payload = `${prefix}.${nonce}.${tagReal}.${ctRealSeg}`;
+    }
+
+    el("sig3Tag").value = tagReal;
+    el("sig3TagDecoy").value = tagDecoy;
+    el("sig3PayloadOut").value = payload;
+
+    const style = el("sig3StegoStyle").value || "none";
+    el("sig3StegoOut").value = (style === "none") ? "" : stegoWrap(style, payload);
+
+    el("sig3StatusEnc").innerHTML = `<span class="ok">Encrypted</span> • KDF:${kdfLevel}${decoyNorm ? " • Decoy: yes":""}${date?` • Date:${date}`:""}`;
+  }catch(e){
+    el("sig3StatusEnc").innerHTML = `<span class="err">${e.message}</span>`;
+  }
+});
+
+/* SIG3 Decrypt */
+el("sig3BtnDec").addEventListener("click", async()=>{
+  const dbg=[];
+  try{
+    el("sig3Status").textContent = "";
+    el("sig3Out").value = "";
+    el("insToday").value = todayYYYYMMDD();
+
+    const key = el("key").value || "";
+    const saltUI = el("sig3SaltDec").value || "";
+    const kdfUI = String(el("sig3KdfDec").value || "2");
+
+    const rawInput = el("sig3Payload").value || "";
+    const raw = extractPayload(rawInput).trim();
+    dbg.push(`Extracted: ${raw}`);
+
+    const parts = raw.split(".");
+    if(parts.length < 4) throw new Error("Expected SIG3 payload (too few segments).");
+
+    const prefix = parts[0].toUpperCase();
+    if(!prefix.startsWith("SIG3")) throw new Error("Payload must start with SIG3...");
+    const mode = (prefix[4] || "A").toUpperCase();
+    const parsedKdf = (/^[0-3]$/.test(prefix[5]||"")) ? prefix[5] : "0";
+    const kdfLevel = parsedKdf || kdfUI;
+
+    const cfg = SIG3_MODES[mode] || SIG3_MODES.A;
+    const nonce = cleanAZ(parts[1] || "");
+    if(nonce.length !== 6) throw new Error("Nonce must be 6 letters.");
+
+    let cursor = 2;
+    let date = "";
+    if(isDate8(parts[cursor] || "")){
+      date = parts[cursor];
+      cursor++;
+    }
+
+    const today = todayYYYYMMDD();
+    const ignoreTime = (el("insIgnoreTime").value || "0") === "1";
+    if(date && !ignoreTime && today < date){
+      throw new Error(`Time-locked until ${date} (local).`);
+    }
+
+    const tag1 = (parts[cursor] || "").toUpperCase(); cursor++;
+    if(!isHex6(tag1)) throw new Error("Tag must be 6 hex chars.");
+
+    let tag2 = "";
+    let combinedCipher = "";
+    if(cursor < parts.length && isHex6((parts[cursor]||"").toUpperCase())){
+      tag2 = (parts[cursor] || "").toUpperCase(); cursor++;
+      combinedCipher = parts.slice(cursor).join(".");
+    }else{
+      combinedCipher = parts.slice(cursor).join(".");
+    }
+
+    let ctRealSeg = combinedCipher;
+    let ctDecoySeg = "";
+    if(tag2){
+      const split = combinedCipher.split("~");
+      if(split.length !== 2) throw new Error("Decoy payload missing '~' separator.");
+      ctRealSeg = split[0]; ctDecoySeg = split[1];
+    }
+
+    const decodeSeg = (seg)=>{
+      if((seg||"").startsWith("P:")) return unpackIndices(seg, cfg.alphabet);
+      return seg || "";
+    };
+    const ctReal = decodeSeg(ctRealSeg);
+    const ctDecoy = tag2 ? decodeSeg(ctDecoySeg) : "";
+
+    const map = makeIndexMap(cfg.alphabet);
+    const stepping = cfg.stepping === "aggressive" ? "aggressive" : cfg.stepping;
+    const reflectorVariant = cfg.reflector === "alt" ? "alt" : "standard";
+
+    // Try real with entered salt
+    const ptReal = await sig3Crypt({key, salt: saltUI, nonce, mode, kdfLevel, date, text: ctReal, alphabet: cfg.alphabet, stepping, reflectorVariant});
+    const ptRealNorm = cleanSIG3Text(ptReal, map);
+    const checkReal = await sig3Tag6({key, salt: saltUI, nonce, mode, kdfLevel, date, alphabet: cfg.alphabet, normalizedPlain: ptRealNorm});
+
+    if(checkReal === tag1){
+      el("sig3Out").value = ptReal;
+      el("sig3Status").innerHTML = `<span class="ok">Decrypted • Tag OK</span> • Mode ${mode} • KDF ${kdfLevel}`;
+      setDebug((el("insShowDebug").value==="1") ? dbg.join("\n") : "");
+      return;
+    }
+
+    // Try decoy with entered salt
+    if(tag2){
+      const ptDecoy = await sig3Crypt({key, salt: saltUI, nonce, mode, kdfLevel, date, text: ctDecoy, alphabet: cfg.alphabet, stepping, reflectorVariant});
+      const ptDecoyNorm = cleanSIG3Text(ptDecoy, map);
+      const checkDecoy = await sig3Tag6({key, salt: saltUI, nonce, mode, kdfLevel, date, alphabet: cfg.alphabet, normalizedPlain: ptDecoyNorm});
+
+      if(checkDecoy === tag2){
+        el("sig3Out").value = ptDecoy;
+        el("sig3Status").innerHTML = `<span class="warn">Decoy decrypted</span> — entered salt matches decoy tag. • Mode ${mode} • KDF ${kdfLevel}`;
+        setDebug((el("insShowDebug").value==="1") ? dbg.join("\n") : "");
+        return;
+      }
+    }
+
+    el("sig3Out").value = ptReal;
+    el("sig3Status").innerHTML = `<span class="err">Tag failed</span> — wrong key/salt, wrong KDF, modified message, or wrong mode.`;
+    setDebug((el("insShowDebug").value==="1") ? dbg.join("\n") : "");
+
+  }catch(e){
+    el("sig3Status").innerHTML = `<span class="err">${e.message}</span>`;
+    setDebug((el("insShowDebug").value==="1") ? dbg.join("\n") : "");
+  }
+});
+
+/* Inspector hotkey */
+document.addEventListener("keydown", (e)=>{
+  if(e.ctrlKey && e.shiftKey && (e.key==="S" || e.key==="s")){
+    e.preventDefault();
+    setInspector(!inspectorOn);
+  }
+});
+
+/* Defaults */
+el("sig1Nonce").value = nonce6();
+el("sig3Nonce").value = nonce6();
+el("insToday").value = todayYYYYMMDD();
+setInspector(false);
+setVersion("SIG1");
+setSIG1Mode("dec");
+setSIG3Mode("dec");
+</script>
+</body>
+</html>
