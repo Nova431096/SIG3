@@ -434,10 +434,10 @@ function isDate8(s){ return /^[0-9]{8}$/.test(s||""); }
 function extractPayload(text){
   const t=(text||"").trim();
   const idx1=t.toUpperCase().indexOf("SIG1.");
-  const idx2=t.toUpperCase().indexOf("SIG3");
+  const idx3=t.toUpperCase().indexOf("SIG3");
   let idx=-1;
-  if(idx1>=0 && idx2>=0) idx=Math.min(idx1,idx2);
-  else idx = (idx1>=0?idx1:idx2);
+  if(idx1>=0 && idx3>=0) idx=Math.min(idx1,idx3);
+  else idx = (idx1>=0?idx1:idx3);
   if(idx<0) return t.replace(/\s+/g,"");
   return t.slice(idx).replace(/\s+/g,"");
 }
@@ -1039,4 +1039,310 @@ el("sig2BtnEnc").addEventListener("click", async ()=>{
     el("sig2Cipher").value = ct;
     el("sig2Tag").value = tag;
     el("sig2PayloadOut").value = `SIG2${mode}.${nonce}.${tag}.${ct}`;
-    el("sig2
+    el("sig2StatusEnc").innerHTML = `<span class="ok">Encrypted</span> • Len: ${ct.length}`;
+  }catch(e){
+    el("sig2StatusEnc").innerHTML = `<span class="err">${e.message}</span>`;
+  }
+});
+el("sig2BtnCopyPayload").addEventListener("click", ()=>copyText(el("sig2PayloadOut").value));
+el("sig2BtnCopyPlain").addEventListener("click", ()=>copyText(el("sig2Out").value));
+
+el("sig2BtnDec").addEventListener("click", async ()=>{
+  try{
+    el("sig2Status").textContent="";
+    const key = el("key").value || "";
+    const raw = (el("sig2Payload").value || "").trim().toUpperCase().replace(/\s+/g,"");
+    const parts = raw.split(".");
+    if(parts.length < 4 || !parts[0].startsWith("SIG2")) throw new Error("Expected: SIG2<MODE>.<NONCE6>.<TAG6>.<CIPHERTEXT>");
+    const prefix = parts[0];
+    const mode = prefix.length > 4 ? prefix.substring(4,5) : "A";
+    const nonce = cleanAZ(parts[1]);
+    const tag = (parts[2]||"").toUpperCase();
+    const ct = parts.slice(3).join(".");
+    if(nonce.length !== 6) throw new Error("Nonce must be 6 letters.");
+
+    const salt = el("sig2SaltDec").value || "";
+    el("sig2ModeDec").value = mode;
+
+    const cfg = SIG2_MODES[mode] || SIG2_MODES.A;
+    const map = buildSig2Map(cfg.alphabet);
+
+    const pt = await sig2Crypt(key, nonce, salt, mode, ct);
+    el("sig2Out").value = pt;
+
+    const ptNorm = cleanSIG2Text(pt, map);
+    const check = await sig2Tag6(key, nonce, salt, mode, ptNorm);
+
+    if(check === tag){
+      el("sig2Status").innerHTML = `<span class="ok">Decrypted • Tag OK</span> • Len: ${pt.length}`;
+    }else{
+      el("sig2Status").innerHTML = `<span class="warn">Decrypted but TAG FAILED</span> — wrong key, wrong salt, or modified message. Expected <span class="mono">${check}</span>, got <span class="mono">${tag}</span>.`;
+    }
+  }catch(e){
+    el("sig2Status").innerHTML = `<span class="err">${e.message}</span>`;
+  }
+});
+el("sig2BtnClear").addEventListener("click", ()=>{
+  el("sig2Payload").value="";
+  el("sig2Out").value="";
+  el("sig2Status").textContent="";
+  el("sig2ModeDec").value="";
+});
+
+/* ---- SIG3 actions ---- */
+el("sig3BtnNonce").addEventListener("click", ()=>{ el("sig3Nonce").value = nonce6(); });
+
+function sig3GetAlphabet(mode){
+  const m = (mode||"A").toUpperCase();
+  return (SIG3_MODES[m] || SIG3_MODES.A).alphabet;
+}
+function sig3GetStepping(mode){
+  const m = (mode||"A").toUpperCase();
+  return (SIG3_MODES[m] || SIG3_MODES.A).stepping;
+}
+function sig3GetReflector(mode){
+  const m = (mode||"A").toUpperCase();
+  return (SIG3_MODES[m] || SIG3_MODES.A).reflector;
+}
+
+function buildSIG3Payload({mode, nonce, kdf, date, tag, tagDecoy, ct, ctDecoy}){
+  const d = date && date.trim() ? date.trim() : "--------";
+  const kd = String(kdf ?? "2");
+  if(tagDecoy && ctDecoy){
+    return `SIG3${mode}.${nonce}.${kd}.${d}.${tag}.${tagDecoy}.${ct}.${ctDecoy}`;
+  }
+  return `SIG3${mode}.${nonce}.${kd}.${d}.${tag}.${ct}`;
+}
+
+function parseSIG3Payload(text){
+  const raw = extractPayload(text||"").trim();
+  const up = raw.toUpperCase().replace(/\s+/g,"");
+  const parts = up.split(".");
+  if(parts.length < 6 || !parts[0].startsWith("SIG3")) throw new Error("Expected SIG3 payload.");
+  const prefix = parts[0];
+  const mode = prefix.length > 4 ? prefix.substring(4,5) : "A";
+  const nonce = cleanAZ(parts[1]);
+  const kdf = parts[2] || "2";
+  const date = parts[3] || "--------";
+  if(nonce.length !== 6) throw new Error("Nonce must be 6 letters.");
+
+  if(parts.length >= 8){
+    return {
+      mode,
+      nonce,
+      kdf,
+      date,
+      tag: parts[4],
+      tagDecoy: parts[5],
+      ct: parts[6],
+      ctDecoy: parts.slice(7).join("."),
+      hasDecoy: true,
+      raw: up
+    };
+  }
+  return {
+    mode,
+    nonce,
+    kdf,
+    date,
+    tag: parts[4],
+    ct: parts.slice(5).join("."),
+    hasDecoy: false,
+    raw: up
+  };
+}
+
+async function sig3EncryptOne({key, salt, nonce, mode, kdfLevel, date, plain, outFmt}){
+  const alphabet = sig3GetAlphabet(mode);
+  const stepping = sig3GetStepping(mode) === "aggressive" ? "aggressive" : "standard";
+  const reflectorVariant = sig3GetReflector(mode) === "alt" ? "alt" : "standard";
+  const map = makeIndexMap(alphabet);
+  const plainNorm = cleanSIG3Text(plain, map);
+  if(!plainNorm) throw new Error("Plaintext is empty after cleaning.");
+
+  const ctFull = await sig3Crypt({
+    key, salt, nonce, mode, kdfLevel, date,
+    text: plainNorm,
+    alphabet,
+    stepping,
+    reflectorVariant
+  });
+
+  const tag = await sig3Tag6({
+    key, salt, nonce, mode, kdfLevel, date,
+    alphabet,
+    normalizedPlain: plainNorm
+  });
+
+  let ctOut = ctFull;
+  if(outFmt === "packed"){
+    const packed = packIndices(ctFull, alphabet);
+    if(packed) ctOut = packed;
+  }
+
+  return {alphabet, plainNorm, ctFull, ctOut, tag};
+}
+
+async function sig3DecryptOne({key, salt, nonce, mode, kdfLevel, date, ctSeg}){
+  const alphabet = sig3GetAlphabet(mode);
+  const stepping = sig3GetStepping(mode) === "aggressive" ? "aggressive" : "standard";
+  const reflectorVariant = sig3GetReflector(mode) === "alt" ? "alt" : "standard";
+  let ct = ctSeg;
+
+  if(typeof ct === "string" && ct.startsWith("P:")){
+    ct = unpackIndices(ct, alphabet);
+  }
+
+  const pt = await sig3Crypt({
+    key, salt, nonce, mode, kdfLevel, date,
+    text: ct,
+    alphabet,
+    stepping,
+    reflectorVariant
+  });
+  return {alphabet, pt};
+}
+
+el("sig3BtnEnc").addEventListener("click", async ()=>{
+  try{
+    el("sig3StatusEnc").textContent = "";
+    const key = el("key").value || "";
+    let nonce = cleanAZ(el("sig3Nonce").value || "");
+    if(nonce.length !== 6){ nonce = nonce6(); el("sig3Nonce").value = nonce; }
+
+    const mode = el("sig3ModeEnc").value || "A";
+    const salt = el("sig3SaltEnc").value || "";
+    const kdf = el("sig3KdfEnc").value || "2";
+    const date = (el("sig3DateEnc").value || "").trim();
+    const outFmt = el("sig3OutFmt").value || "standard";
+
+    const realPlain = el("sig3Plain").value || "";
+    const decoyPlain = (el("sig3PlainDecoy").value || "").trim();
+    const decoySalt = el("sig3SaltDecoy").value || "";
+
+    const real = await sig3EncryptOne({key, salt, nonce, mode, kdfLevel:kdf, date, plain: realPlain, outFmt});
+
+    let payload = "";
+    if(decoyPlain){
+      const dec = await sig3EncryptOne({key, salt:decoySalt, nonce, mode, kdfLevel:kdf, date, plain: decoyPlain, outFmt});
+      el("sig3Tag").value = real.tag;
+      el("sig3TagDecoy").value = dec.tag;
+      payload = buildSIG3Payload({
+        mode, nonce, kdf, date,
+        tag: real.tag,
+        tagDecoy: dec.tag,
+        ct: real.ctOut,
+        ctDecoy: dec.ctOut
+      });
+    }else{
+      el("sig3Tag").value = real.tag;
+      el("sig3TagDecoy").value = "";
+      payload = buildSIG3Payload({
+        mode, nonce, kdf, date,
+        tag: real.tag,
+        ct: real.ctOut
+      });
+    }
+
+    el("sig3PayloadOut").value = payload;
+
+    const stegoStyle = el("sig3StegoStyle").value || "none";
+    el("sig3StegoOut").value = stegoStyle === "none" ? "" : stegoWrap(stegoStyle, payload);
+
+    el("sig3StatusEnc").innerHTML = `<span class="ok">Encrypted</span> • Len: ${real.ctFull.length}${decoyPlain ? " • Decoy: yes" : ""}`;
+  }catch(e){
+    el("sig3StatusEnc").innerHTML = `<span class="err">${e.message}</span>`;
+  }
+});
+
+el("sig3BtnCopyPayload").addEventListener("click", ()=>copyText(el("sig3PayloadOut").value));
+el("sig3BtnCopyStego").addEventListener("click", ()=>copyText(el("sig3StegoOut").value));
+el("sig3BtnCopyPlain").addEventListener("click", ()=>copyText(el("sig3Out").value));
+
+el("sig3BtnDec").addEventListener("click", async ()=>{
+  try{
+    el("sig3Status").textContent = "";
+    setDebug("");
+
+    const key = el("key").value || "";
+    const salt = el("sig3SaltDec").value || "";
+    const ignoreTime = inspectorOn && el("insIgnoreTime").value === "1";
+
+    const parsed = parseSIG3Payload(el("sig3Payload").value || "");
+    const mode = el("sig3ModeDec").value || parsed.mode || "A";
+    const nonce = parsed.nonce;
+    const kdf = el("sig3KdfDec").value || parsed.kdf || "2";
+    const date = (parsed.date && parsed.date !== "--------") ? parsed.date : "";
+
+    if(date && isDate8(date) && !ignoreTime){
+      const today = todayYYYYMMDD();
+      if(date > today){
+        throw new Error(`Time-locked until ${date} (today is ${today}).`);
+      }
+    }
+
+    const real = await sig3DecryptOne({key, salt, nonce, mode, kdfLevel:kdf, date, ctSeg: parsed.ct});
+    const alphabet = real.alphabet;
+
+    const map = makeIndexMap(alphabet);
+    const ptNorm = cleanSIG3Text(real.pt, map);
+    const check = await sig3Tag6({key, salt, nonce, mode, kdfLevel:kdf, date, alphabet, normalizedPlain: ptNorm});
+
+    let debug = `mode=${mode}\nnonce=${nonce}\nkdf=${kdf}\ndate=${date||"(none)"}\nct=${parsed.ct.slice(0,120)}${parsed.ct.length>120?"…":""}\n`;
+    debug += `tag_payload=${parsed.tag}\ntag_calc=${check}\n`;
+
+    if(check !== parsed.tag && parsed.hasDecoy){
+      const decSalt = el("sig3SaltDecoy").value || "";
+      const dec = await sig3DecryptOne({key, salt:decSalt, nonce, mode, kdfLevel:kdf, date, ctSeg: parsed.ctDecoy});
+      const mapD = makeIndexMap(dec.alphabet);
+      const ptNormD = cleanSIG3Text(dec.pt, mapD);
+      const checkD = await sig3Tag6({key, salt:decSalt, nonce, mode, kdfLevel:kdf, date, alphabet:dec.alphabet, normalizedPlain: ptNormD});
+      debug += `\n(decoy attempt)\ndecoy_salt=${decSalt||"(empty)"}\ntag_payload_decoy=${parsed.tagDecoy}\ntag_calc_decoy=${checkD}\n`;
+
+      if(checkD === parsed.tagDecoy){
+        el("sig3Out").value = dec.pt;
+        el("sig3Status").innerHTML = `<span class="ok">Decrypted • Decoy matched</span> • Len: ${dec.pt.length}`;
+        setDebug(debug);
+        return;
+      }
+    }
+
+    el("sig3Out").value = real.pt;
+
+    if(check === parsed.tag){
+      el("sig3Status").innerHTML = `<span class="ok">Decrypted • Tag OK</span> • Len: ${real.pt.length}`;
+    }else{
+      el("sig3Status").innerHTML = `<span class="warn">Decrypted but TAG FAILED</span> — wrong key/salt/kdf/mode, time-lock mismatch, or modified message. Expected <span class="mono">${check}</span>, got <span class="mono">${parsed.tag}</span>.`;
+    }
+
+    setDebug(debug);
+  }catch(e){
+    el("sig3Status").innerHTML = `<span class="err">${e.message}</span>`;
+    setDebug(String(e && e.stack ? e.stack : e));
+  }
+});
+
+el("sig3BtnClear").addEventListener("click", ()=>{
+  el("sig3Payload").value="";
+  el("sig3Out").value="";
+  el("sig3Status").textContent="";
+  setDebug("");
+});
+
+/* =========================
+   Initialize defaults
+========================= */
+el("sig1Nonce").value = nonce6();
+el("sig2Nonce").value = nonce6();
+el("sig3Nonce").value = nonce6();
+
+el("insToday").value = todayYYYYMMDD();
+
+setVersion("SIG1");
+setSIG1Mode("dec");
+setSIG2ModePanel("dec");
+setSIG3Mode("dec");
+setInspector(false);
+</script>
+</body>
+</html>
