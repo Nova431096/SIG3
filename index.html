@@ -434,10 +434,10 @@ function isDate8(s){ return /^[0-9]{8}$/.test(s||""); }
 function extractPayload(text){
   const t=(text||"").trim();
   const idx1=t.toUpperCase().indexOf("SIG1.");
-  const idx3=t.toUpperCase().indexOf("SIG3");
+  const idx2=t.toUpperCase().indexOf("SIG3");
   let idx=-1;
-  if(idx1>=0 && idx3>=0) idx=Math.min(idx1,idx3);
-  else idx = (idx1>=0?idx1:idx3);
+  if(idx1>=0 && idx2>=0) idx=Math.min(idx1,idx2);
+  else idx = (idx1>=0?idx1:idx2);
   if(idx<0) return t.replace(/\s+/g,"");
   return t.slice(idx).replace(/\s+/g,"");
 }
@@ -1106,11 +1106,14 @@ function sig3GetReflector(mode){
 }
 
 function buildSIG3Payload({mode, nonce, kdf, date, tag, tagDecoy, ct, ctDecoy}){
+  // Date can be blank -> use "--------"
   const d = date && date.trim() ? date.trim() : "--------";
   const kd = String(kdf ?? "2");
+  // With decoy: SIG3<mode>.<nonce>.<kdf>.<date>.<tagR>.<tagD>.<ctR>.<ctD>
   if(tagDecoy && ctDecoy){
     return `SIG3${mode}.${nonce}.${kd}.${d}.${tag}.${tagDecoy}.${ct}.${ctDecoy}`;
   }
+  // Standard: SIG3<mode>.<nonce>.<kdf>.<date>.<tag>.<ct>
   return `SIG3${mode}.${nonce}.${kd}.${d}.${tag}.${ct}`;
 }
 
@@ -1126,6 +1129,7 @@ function parseSIG3Payload(text){
   const date = parts[3] || "--------";
   if(nonce.length !== 6) throw new Error("Nonce must be 6 letters.");
 
+  // Detect decoy by length
   if(parts.length >= 8){
     return {
       mode,
@@ -1135,7 +1139,7 @@ function parseSIG3Payload(text){
       tag: parts[4],
       tagDecoy: parts[5],
       ct: parts[6],
-      ctDecoy: parts.slice(7).join("."),
+      ctDecoy: parts.slice(7).join("."), // allow dots if any
       hasDecoy: true,
       raw: up
     };
@@ -1189,6 +1193,7 @@ async function sig3DecryptOne({key, salt, nonce, mode, kdfLevel, date, ctSeg}){
   const reflectorVariant = sig3GetReflector(mode) === "alt" ? "alt" : "standard";
   let ct = ctSeg;
 
+  // If packed ciphertext, unpack first
   if(typeof ct === "string" && ct.startsWith("P:")){
     ct = unpackIndices(ct, alphabet);
   }
@@ -1220,8 +1225,10 @@ el("sig3BtnEnc").addEventListener("click", async ()=>{
     const decoyPlain = (el("sig3PlainDecoy").value || "").trim();
     const decoySalt = el("sig3SaltDecoy").value || "";
 
+    // Encrypt real
     const real = await sig3EncryptOne({key, salt, nonce, mode, kdfLevel:kdf, date, plain: realPlain, outFmt});
 
+    // Optional decoy
     let payload = "";
     if(decoyPlain){
       const dec = await sig3EncryptOne({key, salt:decoySalt, nonce, mode, kdfLevel:kdf, date, plain: decoyPlain, outFmt});
@@ -1269,11 +1276,12 @@ el("sig3BtnDec").addEventListener("click", async ()=>{
     const ignoreTime = inspectorOn && el("insIgnoreTime").value === "1";
 
     const parsed = parseSIG3Payload(el("sig3Payload").value || "");
-    const mode = el("sig3ModeDec").value || parsed.mode || "A";
+    const mode = el("sig3ModeDec").value || parsed.mode || "A"; // allow override
     const nonce = parsed.nonce;
     const kdf = el("sig3KdfDec").value || parsed.kdf || "2";
     const date = (parsed.date && parsed.date !== "--------") ? parsed.date : "";
 
+    // Time lock enforcement
     if(date && isDate8(date) && !ignoreTime){
       const today = todayYYYYMMDD();
       if(date > today){
@@ -1281,6 +1289,7 @@ el("sig3BtnDec").addEventListener("click", async ()=>{
       }
     }
 
+    // Attempt real decrypt
     const real = await sig3DecryptOne({key, salt, nonce, mode, kdfLevel:kdf, date, ctSeg: parsed.ct});
     const alphabet = real.alphabet;
 
@@ -1291,8 +1300,9 @@ el("sig3BtnDec").addEventListener("click", async ()=>{
     let debug = `mode=${mode}\nnonce=${nonce}\nkdf=${kdf}\ndate=${date||"(none)"}\nct=${parsed.ct.slice(0,120)}${parsed.ct.length>120?"…":""}\n`;
     debug += `tag_payload=${parsed.tag}\ntag_calc=${check}\n`;
 
+    // If tag fails and decoy exists, try decoy path
     if(check !== parsed.tag && parsed.hasDecoy){
-      const decSalt = el("sig3SaltDecoy").value || "";
+      const decSalt = el("sig3SaltDecoy").value || ""; // optional input; otherwise empty
       const dec = await sig3DecryptOne({key, salt:decSalt, nonce, mode, kdfLevel:kdf, date, ctSeg: parsed.ctDecoy});
       const mapD = makeIndexMap(dec.alphabet);
       const ptNormD = cleanSIG3Text(dec.pt, mapD);
